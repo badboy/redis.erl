@@ -47,6 +47,31 @@ exists(Sock, Key) ->
 del(Sock, Key) ->
     send(Sock, ["del ", Key, "\r\n"]).
 
+type(Sock, Key) ->
+    send(Sock, ["type ", Key, "\r\n"]).
+
+size(Sock) ->
+    send(Sock, ["dbsize", "\r\n"]).
+
+select(Sock, DB) ->
+    send(Sock, ["select ", DB, "\r\n"]).
+
+ttl(Sock, Key) ->
+    send(Sock, ["ttl ", Key, "\r\n"]).
+
+incr(Sock, Key) ->
+    send(Sock, ["incr ", Key, "\r\n"]).
+decr(Sock, Key) ->
+    send(Sock, ["decr ", Key, "\r\n"]).
+incrby(Sock, Key, Incr) ->
+    send(Sock, ["incrby ", Key, " ", integer_to_list(Incr), "\r\n"]).
+decrby(Sock, Key, Incr) ->
+    send(Sock, ["decrby ", Key, " ", integer_to_list(Incr), "\r\n"]).
+
+info(Sock) ->
+    send(Sock, ["info\r\n"]).
+
+
 % Bulk Reply, prefixed with $ and the Length
 read_reply(<<"$",_BulkLen, "\r\n", Rest/binary>>) ->
     Data = remove_tail(Rest),
@@ -64,6 +89,17 @@ read_reply(<<"-", Answer/binary>>) ->
 % Integer Reply, : followed by base-10 integer
 read_reply(<<":", Answer/binary>>) ->
     list_to_integer(binary_to_list(remove_tail(Answer)));
+% FIXME:
+% catch everything else (for example response of "info")
+% I don't know how to correctly handle
+% <<"$363\r\n...\r\n">>
+% any ideas/help?
+read_reply(<<"$", Rest/binary>>) ->
+    [_Size|Tail] = string:tokens(binary_to_list(Rest), "\r\n"),
+    lists:map(fun(X) ->
+                [Key|Value] = string:tokens(X, ":"),
+                {Key,lists:flatten(Value)}
+        end, Tail);
 read_reply(Resp) ->
     io_lib:format("not implemented: ~s", [Resp]).
 
